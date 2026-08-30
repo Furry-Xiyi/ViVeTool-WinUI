@@ -12,7 +12,8 @@
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <SelfContained>false</SelfContained>
-    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <!-- Tabular themes use ms-appx URIs, so include their PRI resources in the application package. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
 	<WindowsAppSDKAIEnabled>False</WindowsAppSDKAIEnabled>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
@@ -48,11 +49,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Labs.WinUI.Controls.DataTable" Version="0.1.251217-build.2433" />
-    <PackageReference Include="CommunityToolkit.WinUI.Behaviors" Version="8.3.260402-preview2" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.3.260402-preview2" />
+    <PackageReference Include="DevWinUI" Version="10.9.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260508005" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.10-experimental" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.5.4-experimental" />
   </ItemGroup>
 
   <ItemGroup>

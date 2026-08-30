@@ -91,6 +91,9 @@ namespace ViVeToolGUI.Pages
             this.InitializeComponent();
             this.NavigationCacheMode = NavigationCacheMode.Enabled;
             _resourceLoader = ResourceLoader.GetForViewIndependentUse();
+            HistoryTimeColumn.Header = GetResourceText("History_HeaderTime");
+            HistoryIdColumn.Header = GetResourceText("Query_HeaderID");
+            HistoryOperationColumn.Header = GetResourceText("Query_HeaderState");
             HistoryListView.ItemsSource = _history;
             Instance = this;
         }
@@ -152,7 +155,7 @@ namespace ViVeToolGUI.Pages
         {
             if (VariantModeComboBox == null || VariantNumberBox == null)
                 return;
-            // Ë÷Òý 1 ¶ÔÓ¦ Custom£¬0 ¶ÔÓ¦ None
+            // ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½Ó¦ Customï¿½ï¿½0 ï¿½ï¿½Ó¦ None
             bool custom = VariantModeComboBox.SelectedIndex == 1;
             _variantMode = custom ? "Custom" : "None";
             VariantNumberLabel.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;

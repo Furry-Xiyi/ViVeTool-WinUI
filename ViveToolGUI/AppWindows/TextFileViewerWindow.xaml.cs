@@ -152,7 +152,6 @@ namespace ViVeToolGUI.AppWindows
         private List<(int Index, int Field, int Pos)> _matches = new();
         private int _prevCurrentIndex = -1;
         private int _currentMatchIndex = -1;
-        private ScrollViewer? _listScrollViewer;
         public ObservableCollection<FeatureEntry> FilteredItems { get; } = new();
         private const int GWLP_WNDPROC = -4;
         private const uint WM_NCLBUTTONDBLCLK = 0x00A3;
@@ -246,8 +245,6 @@ namespace ViVeToolGUI.AppWindows
             LoadCsv();
             _ = FetchRemoteCsvAsync();
 
-            FeaturesListView.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler(FeaturesListView_RightTapped), true);
-            FeaturesListView.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(FeaturesListView_PointerPressed), true);
         }
 
         private void TextFileViewerWindow_Closed(object sender, WindowEventArgs args)
@@ -470,7 +467,6 @@ namespace ViVeToolGUI.AppWindows
             FilteredItems[idx].CurrentMatchPos = pos;
             _prevCurrentIndex = idx;
 
-            FeaturesListView.ScrollIntoView(FilteredItems[idx], ScrollIntoViewAlignment.Leading);
         }
 
         private void NextButton_Click(object sender, RoutedEventArgs e)
@@ -489,113 +485,8 @@ namespace ViVeToolGUI.AppWindows
             MatchCountText.Text = $"{_currentMatchIndex + 1}/{_matches.Count}";
         }
 
-        private void HeaderTable_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (HeaderDataTable == null || ColDescriptionColumn == null
-                || ColIdColumn == null || ColVariantColumn == null)
-                return;
-
-            double total = HeaderDataTable.ActualWidth;
-            if (total <= 0)
-                return;
-
-            double idW = ColIdColumn.ActualWidth > 0 ? ColIdColumn.ActualWidth : ColIdColumn.DesiredWidth.Value;
-            double varW = ColVariantColumn.ActualWidth > 0 ? ColVariantColumn.ActualWidth : ColVariantColumn.DesiredWidth.Value;
-            double spacing = HeaderDataTable.ColumnSpacing;
-
-            double available = total - idW - varW - spacing * 2;
-            if (available < 40) available = 40;
-
-            if (Math.Abs(ColDescriptionColumn.DesiredWidth.Value - available) < 0.5
-                && ColDescriptionColumn.DesiredWidth.GridUnitType == GridUnitType.Pixel)
-                return;
-
-            ColDescriptionColumn.DesiredWidth = new GridLength(available, GridUnitType.Pixel);
-
-            this.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
-            {
-                InvalidateAllDataRows(FeaturesListView);
-            });
-        }
-
-        private static void InvalidateAllDataRows(DependencyObject root)
-        {
-            if (root == null) return;
-            int count = VisualTreeHelper.GetChildrenCount(root);
-            for (int i = 0; i < count; i++)
-            {
-                var child = VisualTreeHelper.GetChild(root, i);
-                if (child is CommunityToolkit.WinUI.Controls.DataRow row)
-                    row.InvalidateMeasure();
-                InvalidateAllDataRows(child);
-            }
-        }
-
         private static readonly System.Text.RegularExpressions.Regex _idPattern =
     new(@"^\s*\d{8,}(\s*,\s*\d{8,})*\s*$", System.Text.RegularExpressions.RegexOptions.Compiled);
-
-        private void FeaturesListView_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            var point = e.GetCurrentPoint(FeaturesListView);
-            if (!point.Properties.IsRightButtonPressed)
-                return;
-
-            if (e.OriginalSource is not DependencyObject src)
-                return;
-
-            var item = FindAncestor<ListViewItem>(src) ?? FindItemAtPoint(point.Position);
-            if (item == null)
-                return;
-
-            e.Handled = true;
-            ShowRowCommandBarFlyout(item, e.GetCurrentPoint(item).Position);
-        }
-
-        private void FeaturesListView_RightTapped(object sender, RightTappedRoutedEventArgs e)
-        {
-            if (e.OriginalSource is not DependencyObject src) return;
-            var item = FindAncestor<ListViewItem>(src) ?? FindItemAtPoint(e.GetPosition(null));
-            if (item == null) return;
-
-            e.Handled = true;
-            ShowRowCommandBarFlyout(item, e.GetPosition(item));
-        }
-
-        private void ShowRowCommandBarFlyout(ListViewItem item, Point pos)
-        {
-            var fe = (item.Content as FeatureEntry) ?? (item.DataContext as FeatureEntry);
-            if (fe == null) return;
-
-            string selectedText = GetSelectedTextFromRow(item);
-            bool hasSelection = !string.IsNullOrEmpty(selectedText);
-            bool isIdSelection = hasSelection && _idPattern.IsMatch(selectedText);
-            string idCsv = isIdSelection ? NormalizeIdCsv(selectedText) : fe.Id;
-            string copyContent = hasSelection ? selectedText : fe.Id;
-            bool isCopyId = !hasSelection || isIdSelection;
-            TextBlock copySourceTb = hasSelection ? FindFocusedTextBlock(item) : null;
-            ShowRowCommandBarFlyout(item, pos, idCsv, copyContent, isCopyId, copySourceTb);
-        }
-        private ListViewItem FindItemAtPoint(Point hostPoint)
-        {
-            try
-            {
-                var elements = VisualTreeHelper.FindElementsInHostCoordinates(hostPoint, FeaturesListView);
-                foreach (var el in elements)
-                    if (el is ListViewItem lvi) return lvi;
-            }
-            catch { }
-            return null;
-        }
-
-        private static T FindAncestor<T>(DependencyObject d) where T : DependencyObject
-        {
-            while (d != null)
-            {
-                if (d is T t) return t;
-                d = VisualTreeHelper.GetParent(d);
-            }
-            return null;
-        }
 
         private static string GetSelectedTextFromRow(DependencyObject root)
         {
@@ -645,15 +536,11 @@ namespace ViVeToolGUI.AppWindows
                 return;
 
             var target = menu.Target as DependencyObject;
-            var item = target != null ? FindAncestor<ListViewItem>(target) : null;
-            var root = (DependencyObject?)item ?? target;
+            var root = target;
             if (root == null)
                 return;
 
-            var fe = (item?.Content as FeatureEntry)
-                ?? (item?.DataContext as FeatureEntry)
-                ?? ((target as FrameworkElement)?.Tag as FeatureEntry)
-                ?? ((target as FrameworkElement)?.DataContext as FeatureEntry);
+            var fe = FindFeatureEntry(target);
             if (fe == null)
                 return;
 
@@ -668,6 +555,24 @@ namespace ViVeToolGUI.AppWindows
                     : rl.GetString("Menu_CopyText/Text");
                 menuItems[4].Visibility = _ctxCopySourceTb != null ? Visibility.Visible : Visibility.Collapsed;
             }
+        }
+
+        private static FeatureEntry? FindFeatureEntry(DependencyObject? target)
+        {
+            while (target != null)
+            {
+                if (target is FrameworkElement element)
+                {
+                    if (element.DataContext is FeatureEntry item)
+                        return item;
+                    if (element.Tag is FeatureEntry taggedItem)
+                        return taggedItem;
+                }
+
+                target = VisualTreeHelper.GetParent(target);
+            }
+
+            return null;
         }
 
         private void PrepareRowContext(DependencyObject root, FeatureEntry fe, out bool isCopyId)

@@ -44,8 +44,8 @@
                             IsSettingsVisible="True"
                             IsBackButtonVisible="Collapsed"
                             IsPaneToggleButtonVisible="False"
-                            SelectionChanged="NavView_SelectionChanged"
-                            ItemInvoked="NavView_ItemInvoked">
+                            ItemInvoked="NavView_ItemInvoked"
+                            Style="{StaticResource NavigationViewStoreStyle}">
 
                 <NavigationView.MenuItems>
                     <NavigationViewItem x:Name="EnableDisableNavItem" x:Uid="Nav_EnableDisable" Tag="enableDisable">
@@ -64,6 +64,10 @@
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
                 </NavigationView.MenuItems>
+                <NavigationView.FooterMenuItems>
+                    <Frame x:Name="MainFrame">
+                    </Frame>
+                </NavigationView.FooterMenuItems>
 
                 <Grid>
                     <Grid.RowDefinitions>

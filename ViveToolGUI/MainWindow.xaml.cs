@@ -39,21 +39,6 @@ namespace ViVeToolGUI
         private CancellationTokenSource _taskbarAutoClearCts;
         public bool IsWindowActivated { get; private set; } = true;
 
-        // 图标字典
-        private static readonly Dictionary<string, string> _normalGlyphs = new()
-        {
-            { "enableDisable", "\uE90F" },
-            { "query", "\uE721" },
-            { "reset", "\uE777" }
-        };
-
-        private static readonly Dictionary<string, string> _selectedGlyphs = new()
-        {
-            { "enableDisable", "\uE90F" },
-            { "query", "\uF78B" },
-            { "reset", "\uE777" }
-        };
-
         public async void OpenExternalLink(object sender, RoutedEventArgs e)
         {
             var root = (ContentFrame.Content as FrameworkElement)?.XamlRoot;
@@ -233,162 +218,17 @@ namespace ViVeToolGUI
             }
         }
 
-        private bool _settingsPressed;
-
         private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
         {
             if (args.IsSettingsInvoked)
             {
                 if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
                     ContentFrame.Navigate(typeof(SettingsPage), null, args.RecommendedNavigationTransitionInfo);
-                var settingsItem = (NavigationViewItem)NavView.SettingsItem;
-                if (_settingsPressed && settingsItem?.Icon is FontIcon fi && fi.Glyph == "\uF8B0")
-                {
-                    _settingsPressed = false;
-                    PlaySolidSettingsSpinAnimation(settingsItem);
-                }
                 return;
             }
             string tag = args.InvokedItemContainer?.Tag?.ToString();
             NavigateByTag(tag, args.RecommendedNavigationTransitionInfo);
         }
-
-        private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
-        {
-            var selectedItem = args.SelectedItemContainer as NavigationViewItem;
-            foreach (var item in NavView.MenuItems.OfType<NavigationViewItem>())
-            {
-                string tag = item.Tag?.ToString();
-                if (string.IsNullOrEmpty(tag)) continue;
-                bool isSelected = item == selectedItem;
-                if (item.Icon is FontIcon fontIcon)
-                {
-                    fontIcon.Glyph = isSelected
-                        ? _selectedGlyphs.GetValueOrDefault(tag, fontIcon.Glyph)
-                        : _normalGlyphs.GetValueOrDefault(tag, fontIcon.Glyph);
-                }
-            }
-            var settingsItem = (NavigationViewItem)NavView.SettingsItem;
-            if (settingsItem != null)
-            {
-                bool isLeftMode = NavView.PaneDisplayMode != NavigationViewPaneDisplayMode.Top;
-                if (args.IsSettingsSelected && isLeftMode)
-                {
-                    _ = SwitchToSolidSettingsAfterDelay(settingsItem);
-                }
-                else if (!args.IsSettingsSelected)
-                {
-                    if (settingsItem.Icon is not AnimatedIcon)
-                    {
-                        settingsItem.Icon = new AnimatedIcon
-                        {
-                            Source = new Microsoft.UI.Xaml.Controls.AnimatedVisuals.AnimatedSettingsVisualSource(),
-                            FallbackIconSource = new FontIconSource { Glyph = "\uE713" }
-                        };
-                    }
-                }
-            }
-        }
-
-
-        private void HookSettingsPointerHandlers(NavigationViewItem settingsItem)
-        {
-            settingsItem.PointerPressed -= SettingsItem_PointerPressed;
-            settingsItem.PointerReleased -= SettingsItem_PointerReleased;
-            settingsItem.PointerCanceled -= SettingsItem_PointerReleased;
-            settingsItem.PointerPressed += SettingsItem_PointerPressed;
-            settingsItem.PointerReleased += SettingsItem_PointerReleased;
-            settingsItem.PointerCanceled += SettingsItem_PointerReleased;
-        }
-
-        private void SettingsItem_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        {
-            if (!e.GetCurrentPoint((UIElement)sender).Properties.IsLeftButtonPressed) return;
-            var settingsItem = (NavigationViewItem)sender;
-            if (settingsItem.Icon is FontIcon fontIcon && fontIcon.Glyph == "\uF8B0")
-            {
-                _settingsPressed = true;
-                if (fontIcon.RenderTransform is not Microsoft.UI.Xaml.Media.RotateTransform rt)
-                {
-                    rt = new Microsoft.UI.Xaml.Media.RotateTransform();
-                    fontIcon.RenderTransform = rt;
-                    fontIcon.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
-                }
-                double currentAngle = rt.Angle;
-                var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-                var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-                {
-                    From = currentAngle,
-                    To = currentAngle - 15,
-                    Duration = new Duration(TimeSpan.FromMilliseconds(150)),
-                    EasingFunction = new Microsoft.UI.Xaml.Media.Animation.CubicEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut }
-                };
-                Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, rt);
-                Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "Angle");
-                sb.Children.Add(anim);
-                sb.Begin();
-            }
-        }
-
-        private void SettingsItem_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        {
-            if (!_settingsPressed) return;
-            _settingsPressed = false;
-            var settingsItem = (NavigationViewItem)sender;
-            if (settingsItem.Icon is FontIcon fontIcon && fontIcon.Glyph == "\uF8B0")
-            {
-                PlaySolidSettingsSpinAnimation(settingsItem);
-            }
-        }
-
-        private async Task SwitchToSolidSettingsAfterDelay(NavigationViewItem settingsItem)
-        {
-            await Task.Delay(600);
-            if (NavView.SelectedItem != NavView.SettingsItem) return;
-            var solidIcon = new FontIcon
-            {
-                Glyph = "\uF8B0",
-                FontSize = 18,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5),
-                RenderTransform = new Microsoft.UI.Xaml.Media.RotateTransform()
-            };
-            settingsItem.Icon = solidIcon;
-            HookSettingsPointerHandlers(settingsItem);
-        }
-
-        private void PlaySolidSettingsSpinAnimation(NavigationViewItem settingsItem)
-        {
-            if (settingsItem == null) return;
-            var fontIcon = settingsItem.Icon as FontIcon;
-            if (fontIcon == null || fontIcon.Glyph != "\uF8B0") return;
-            if (fontIcon.RenderTransform is not Microsoft.UI.Xaml.Media.RotateTransform rotateTransform)
-            {
-                rotateTransform = new Microsoft.UI.Xaml.Media.RotateTransform();
-                fontIcon.RenderTransform = rotateTransform;
-                fontIcon.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
-            }
-            double currentAngle = rotateTransform.Angle;
-            double targetAngle = currentAngle + 360 + (360 - (currentAngle % 360 + 360) % 360);
-            var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-            var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-            {
-                From = currentAngle,
-                To = targetAngle,
-                Duration = new Duration(TimeSpan.FromMilliseconds(900)),
-                EasingFunction = new Microsoft.UI.Xaml.Media.Animation.CubicEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut }
-            };
-            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, rotateTransform);
-            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "Angle");
-            sb.Children.Add(anim);
-            sb.Completed += (s, e) =>
-            {
-                rotateTransform.Angle = 0;
-            };
-            sb.Begin();
-        }
-
-
         private void BackButton_Click(object sender, RoutedEventArgs e)
         {
             if (ContentFrame.CanGoBack) ContentFrame.GoBack();

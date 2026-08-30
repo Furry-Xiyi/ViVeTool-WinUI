@@ -3,7 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:local="using:ViVeToolGUI.Pages">
+    xmlns:local="using:ViVeToolGUI.Pages"
+    xmlns:tabular="using:Microsoft.UI.Xaml.Controls.Tabular">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -162,94 +163,40 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0"
-                          Padding="25,8,12,8"
-                          ColumnSpacing="12"
-                          Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="160"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock x:Uid="History_HeaderTime" Grid.Column="0" FontWeight="SemiBold"/>
-                        <TextBlock x:Uid="Query_HeaderID" Grid.Column="1" FontWeight="SemiBold"/>
-                        <TextBlock x:Uid="Query_HeaderState" Grid.Column="2" FontWeight="SemiBold"/>
-                    </Grid>
-
-                    <ListView x:Name="HistoryListView"
-                              Grid.Row="1"
-                              SelectionMode="Single">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Padding" Value="0"/>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="local:OperationRecord">
-                                <Grid Padding="12,6" ColumnSpacing="12" Background="Transparent">
-                                    <Grid.ContextFlyout>
+                    <tabular:TableView x:Name="HistoryListView"
+                                  Grid.Row="1"
+                                  IsReadOnly="True">
+                        <tabular:TableView.Resources>
+                            <Style TargetType="tabular:TableViewRow">
+                                <Setter Property="ContextFlyout">
+                                    <Setter.Value>
                                         <MenuFlyout Opening="HistoryMenuFlyout_Opening">
-                                            <MenuFlyoutItem x:Name="MenuHistoryEnable"
-                    x:Uid="Menu_EnableFeature"
-                    Click="HistoryEnable_Click"
-                    CommandParameter="{x:Bind}">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE73E;"/>
-                                                </MenuFlyoutItem.Icon>
+                                            <MenuFlyoutItem x:Name="MenuHistoryEnable" x:Uid="Menu_EnableFeature" Click="HistoryEnable_Click" CommandParameter="{Binding}">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE73E;"/></MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
-                                            <MenuFlyoutItem x:Name="MenuHistoryDisable"
-                    x:Uid="Menu_DisableFeature"
-                    Click="HistoryDisable_Click"
-                    CommandParameter="{x:Bind}">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE711;"/>
-                                                </MenuFlyoutItem.Icon>
+                                            <MenuFlyoutItem x:Name="MenuHistoryDisable" x:Uid="Menu_DisableFeature" Click="HistoryDisable_Click" CommandParameter="{Binding}">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE711;"/></MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
-                                            <MenuFlyoutItem x:Uid="Menu_RestoreFeature"
-                    Click="HistoryRestore_Click"
-                    CommandParameter="{x:Bind}">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE777;"/>
-                                                </MenuFlyoutItem.Icon>
+                                            <MenuFlyoutItem x:Uid="Menu_RestoreFeature" Click="HistoryRestore_Click" CommandParameter="{Binding}">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE777;"/></MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
                                             <MenuFlyoutSeparator/>
-                                            <MenuFlyoutItem x:Uid="Menu_CopyFeatureId"
-                    Click="HistoryCopyId_Click"
-                    CommandParameter="{x:Bind}">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE8C8;"/>
-                                                </MenuFlyoutItem.Icon>
+                                            <MenuFlyoutItem x:Uid="Menu_CopyFeatureId" Click="HistoryCopyId_Click" CommandParameter="{Binding}">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8C8;"/></MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
-                                            <MenuFlyoutItem x:Uid="Menu_HistoryDelete"
-                    Click="HistoryDelete_Click"
-                    CommandParameter="{x:Bind}">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE74D;"
-                      Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
-                                                </MenuFlyoutItem.Icon>
-                                                <MenuFlyoutItem.Foreground>
-                                                    <StaticResource ResourceKey="SystemFillColorCriticalBrush"/>
-                                                </MenuFlyoutItem.Foreground>
+                                            <MenuFlyoutItem x:Uid="Menu_HistoryDelete" Click="HistoryDelete_Click" CommandParameter="{Binding}">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></MenuFlyoutItem.Icon>
+                                                <MenuFlyoutItem.Foreground><StaticResource ResourceKey="SystemFillColorCriticalBrush"/></MenuFlyoutItem.Foreground>
                                             </MenuFlyoutItem>
                                         </MenuFlyout>
-                                    </Grid.ContextFlyout>
-
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="180"/>
-                                        <ColumnDefinition Width="160"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Grid.Column="0" Text="{x:Bind Time}"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind FeatureId}"
-                                               FontFamily="Consolas"/>
-                                    <TextBlock Grid.Column="2" Text="{x:Bind Operation}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </tabular:TableView.Resources>
+                        <tabular:TableViewTextColumn x:Name="HistoryTimeColumn" Binding="{Binding Time}" Width="180"/>
+                        <tabular:TableViewTextColumn x:Name="HistoryIdColumn" Binding="{Binding FeatureId}" Width="160"/>
+                        <tabular:TableViewTextColumn x:Name="HistoryOperationColumn" Binding="{Binding Operation}" Width="*"/>
+                    </tabular:TableView>
                 </Grid>
             </Border>
         </Grid>

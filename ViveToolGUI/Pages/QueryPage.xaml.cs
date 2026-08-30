@@ -51,6 +51,9 @@ namespace ViVeToolGUI.Pages
             this.InitializeComponent();
             this.NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
             _resourceLoader = ResourceLoader.GetForViewIndependentUse();
+            QueryStateColumn.Header = GetResourceText("Query_HeaderState");
+            QueryVariantColumn.Header = GetResourceText("Query_HeaderVariant");
+            QueryPayloadColumn.Header = GetResourceText("Query_HeaderVariantPayload");
             FeaturesListView.ItemsSource = _features;
         }
 

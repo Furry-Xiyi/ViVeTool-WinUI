@@ -1,13 +1,14 @@
 <Application
     x:Class="ViVeToolGUI.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tabular="using:Microsoft.UI.Xaml.Controls.Tabular">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-                <ResourceDictionary Source="ms-appx:///Styles/NavigationView.Themeresources.xaml"/>
-                <ResourceDictionary Source="ms-appx:///Styles/NavigationView.xaml"/>
+                <tabular:TabularControlsResources />
+                <ResourceDictionary Source="ms-appx:///DevWinUI/Themes/Generic.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
