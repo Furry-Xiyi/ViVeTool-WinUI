@@ -150,6 +150,9 @@
   <data name="EnableDisable_InvalidID" xml:space="preserve">
     <value>无效的功能 ID。</value>
   </data>
+  <data name="EnableDisable_InvalidVariant.Text" xml:space="preserve">
+    <value>请输入有效的变体编号。</value>
+  </data>
   <data name="EnableDisable_VariantNumber.Text" xml:space="preserve">
     <value>变体数值</value>
   </data>
@@ -207,8 +210,11 @@
   <data name="Query_HeaderState.Text" xml:space="preserve">
     <value>状态</value>
   </data>
-  <data name="Query_HeaderVariant.Text" xml:space="preserve">
+  <data name="Query_HeaderType.Text" xml:space="preserve">
     <value>类型</value>
+  </data>
+  <data name="Query_HeaderVariant.Text" xml:space="preserve">
+    <value>变体</value>
   </data>
   <data name="Query_HeaderVariantPayload.Text" xml:space="preserve">
     <value>描述</value>
@@ -264,6 +270,15 @@
   <data name="Reset_StandardButton.Content" xml:space="preserve">
     <value>重置所有覆盖配置</value>
   </data>
+  <data name="Reset_ManualCard.Header" xml:space="preserve">
+    <value>重置手动配置</value>
+  </data>
+  <data name="Reset_ManualCard.Description" xml:space="preserve">
+    <value>批量重置启用/禁用页中手动配置过的功能。</value>
+  </data>
+  <data name="Reset_ManualButton.Content" xml:space="preserve">
+    <value>重置手动配置</value>
+  </data>
   <data name="Reset_WarningInfoBar.Title" xml:space="preserve">
     <value>警告</value>
   </data>
@@ -278,6 +293,12 @@
   </data>
   <data name="Reset_ConfirmMessage" xml:space="preserve">
     <value>确定要移除所有已配置的功能覆盖项吗？此操作无法撤销。</value>
+  </data>
+  <data name="Reset_ManualConfirmMessage" xml:space="preserve">
+    <value>确定要重置启用/禁用页中手动配置过的功能吗？此操作无法撤销。</value>
+  </data>
+  <data name="Reset_ManualEmptyMessage" xml:space="preserve">
+    <value>没有找到启用/禁用页中的手动配置记录。</value>
   </data>
   <data name="Reset_SuccessMessage" xml:space="preserve">
     <value>重置成功完成。可能需要重启系统。</value>
@@ -458,6 +479,12 @@
   </data>
   <data name="History_HeaderTime.Text" xml:space="preserve">
     <value>日期</value>
+  </data>
+  <data name="History_HeaderOperation.Text" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="History_HeaderVariant.Text" xml:space="preserve">
+    <value>变体</value>
   </data>
   <data name="Menu_HistoryDelete.Text" xml:space="preserve">
     <value>删除此条历史</value>

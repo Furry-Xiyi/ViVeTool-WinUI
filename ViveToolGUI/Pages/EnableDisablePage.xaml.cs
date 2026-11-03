@@ -27,6 +27,11 @@ namespace ViVeToolGUI.Pages
             public string Time { get; set; } = "";
             public string FeatureId { get; set; } = "";
             public string Operation { get; set; } = "";
+            public string Variant { get; set; } = "";
+            public string PayloadKind { get; set; } = "";
+            public string Payload { get; set; } = "";
+            public string VariantPayload => string.Join(" / ", new[] { PayloadKind, Payload }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
         }
 
         public static class OperationLogger
@@ -48,7 +53,10 @@ namespace ViVeToolGUI.Pages
                         {
                             Time = parts[0],
                             FeatureId = parts[1],
-                            Operation = parts[2]
+                            Operation = parts[2],
+                            Variant = parts.Length > 3 ? parts[3] : "",
+                            PayloadKind = parts.Length > 4 ? parts[4] : "",
+                            Payload = parts.Length > 5 ? parts[5] : ""
                         });
                     }
                 }
@@ -56,19 +64,29 @@ namespace ViVeToolGUI.Pages
                 return list;
             }
 
-            public static void Append(string featureId, string operation)
+            public static void Append(string featureId, string operation,
+                string variant = "", string payloadKind = "", string payload = "")
             {
                 var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 File.AppendAllText(_filePath,
-                    $"{time}|{featureId}|{operation}{Environment.NewLine}");
+                    $"{time}|{featureId}|{operation}|{variant}|{payloadKind}|{payload}{Environment.NewLine}");
             }
 
             public static void Delete(OperationRecord record)
             {
                 if (!File.Exists(_filePath)) return;
                 var lines = new List<string>(File.ReadAllLines(_filePath));
-                var target = $"{record.Time}|{record.FeatureId}|{record.Operation}";
-                lines.Remove(target);
+                int index = lines.FindIndex(line =>
+                {
+                    var parts = line.Split('|');
+                    return parts.Length >= 3 && parts[0] == record.Time &&
+                        parts[1] == record.FeatureId && parts[2] == record.Operation &&
+                        (parts.Length < 4 ? "" : parts[3]) == record.Variant &&
+                        (parts.Length < 5 ? "" : parts[4]) == record.PayloadKind &&
+                        (parts.Length < 6 ? "" : parts[5]) == record.Payload;
+                });
+                if (index >= 0)
+                    lines.RemoveAt(index);
                 File.WriteAllLines(_filePath, lines);
             }
 
@@ -81,7 +99,6 @@ namespace ViVeToolGUI.Pages
     public sealed partial class EnableDisablePage : Page
     {
         private readonly ResourceLoader _resourceLoader;
-        private string _variantMode = "None";
         private readonly ObservableCollection<OperationRecord> _history = new();
 
         public static EnableDisablePage Instance { get; private set; }
@@ -91,14 +108,13 @@ namespace ViVeToolGUI.Pages
             this.InitializeComponent();
             this.NavigationCacheMode = NavigationCacheMode.Enabled;
             _resourceLoader = ResourceLoader.GetForViewIndependentUse();
-            HistoryTimeColumn.Header = GetResourceText("History_HeaderTime");
-            HistoryIdColumn.Header = GetResourceText("Query_HeaderID");
-            HistoryOperationColumn.Header = GetResourceText("Query_HeaderState");
             HistoryListView.ItemsSource = _history;
             Instance = this;
         }
 
-        public async Task<(bool Success, string Message)> RunFeatureCommandAsync(string idCsv, string action)
+        public async Task<(bool Success, string Message)> RunFeatureCommandAsync(
+            string idCsv, string action, string variant = null,
+            string payloadKind = null, string payload = null)
         {
             if (string.IsNullOrWhiteSpace(idCsv))
                 return (false, "empty");
@@ -112,12 +128,24 @@ namespace ViVeToolGUI.Pages
             };
             if (arguments == null) return (false, "unknown action");
 
+            if (action == "Enable" && !string.IsNullOrWhiteSpace(variant))
+            {
+                arguments += $" /variant:{variant}";
+                if (!string.IsNullOrWhiteSpace(payloadKind) &&
+                    !payloadKind.Equals("None", StringComparison.OrdinalIgnoreCase))
+                {
+                    arguments += $" /variantpayloadkind:{payloadKind}";
+                    if (!string.IsNullOrWhiteSpace(payload))
+                        arguments += $" /variantpayload:{payload}";
+                }
+            }
+
             try
             {
                 var result = await MainWindow.ExecuteViVeToolCommandAsync(arguments);
                 if (result.ExitCode == 0)
                 {
-                    OperationLogger.Append(idCsv, action);
+                    OperationLogger.Append(idCsv, action, variant, payloadKind, payload);
                     if (this.DispatcherQueue != null)
                         this.DispatcherQueue.TryEnqueue(() => LoadHistory());
                     return (true, GetSuccessMessage(action));
@@ -149,44 +177,6 @@ namespace ViVeToolGUI.Pages
             _history.Clear();
             foreach (var record in OperationLogger.Load())
                 _history.Add(record);
-        }
-
-        private void VariantModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (VariantModeComboBox == null || VariantNumberBox == null)
-                return;
-            // ���� 1 ��Ӧ Custom��0 ��Ӧ None
-            bool custom = VariantModeComboBox.SelectedIndex == 1;
-            _variantMode = custom ? "Custom" : "None";
-            VariantNumberLabel.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
-            VariantNumberPanel.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
-            if (!custom)
-            {
-                VariantNumberBox.Value = double.NaN;
-                VariantPayloadNumberBox.Value = double.NaN;
-                VariantPayloadKindComboBox.SelectedIndex = 0;
-                VariantPayloadNumberBox.Visibility = Visibility.Collapsed;
-                VariantPayloadLabel.Visibility = Visibility.Collapsed;
-            }
-        }
-        private void VariantPayloadKindComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (VariantPayloadKindComboBox == null || VariantPayloadNumberBox == null)
-                return;
-            // 0: None, 1: Resident, 2: External
-            int index = VariantPayloadKindComboBox.SelectedIndex;
-            string kind = index switch
-            {
-                1 => "Resident",
-                2 => "External",
-                _ => "None"
-            };
-            bool showPayload = kind != "None" && _variantMode == "Custom";
-            VariantPayloadNumberBox.Visibility = showPayload ? Visibility.Visible : Visibility.Collapsed;
-            VariantPayloadLabel.Visibility = showPayload ? Visibility.Visible : Visibility.Collapsed;
-            VariantPayloadNumberBox.IsEnabled = showPayload;
-            if (!showPayload)
-                VariantPayloadNumberBox.Value = double.NaN;
         }
 
         private void FeatureIDTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -228,6 +218,9 @@ namespace ViVeToolGUI.Pages
 
             var enableItem = menu.Items.FirstOrDefault(i => i is MenuFlyoutItem m && m.Name == "MenuHistoryEnable") as MenuFlyoutItem;
             var disableItem = menu.Items.FirstOrDefault(i => i is MenuFlyoutItem m && m.Name == "MenuHistoryDisable") as MenuFlyoutItem;
+
+            foreach (var menuItem in menu.Items.OfType<MenuFlyoutItem>())
+                menuItem.CommandParameter = record;
 
             if (enableItem != null)
                 enableItem.Visibility = record.Operation.Equals("Enable", StringComparison.OrdinalIgnoreCase)
@@ -308,29 +301,21 @@ namespace ViVeToolGUI.Pages
                 string idArg = BuildIdArgument(ids);
                 string arguments = $"{action} /id:{idArg}";
 
-                if (_variantMode == "Custom")
+                if (VariantOptions.VariantMode == "Custom")
                 {
-                    if (!double.IsNaN(VariantNumberBox.Value))
+                    if (!string.IsNullOrWhiteSpace(VariantOptions.VariantNumberText))
                     {
-                        uint variant = (uint)VariantNumberBox.Value;
-                        arguments += $" /variant:{variant}";
+                        arguments += $" /variant:{VariantOptions.VariantNumberText}";
                     }
 
-                    int index = VariantPayloadKindComboBox.SelectedIndex;
-                    string payloadKind = index switch
-                    {
-                        1 => "Resident",
-                        2 => "External",
-                        _ => "None"
-                    };
+                    string payloadKind = VariantOptions.PayloadKind;
                     if (payloadKind != "None")
                     {
                         arguments += $" /variantpayloadkind:{payloadKind}";
 
-                        if (!double.IsNaN(VariantPayloadNumberBox.Value))
+                        if (!string.IsNullOrWhiteSpace(VariantOptions.PayloadText))
                         {
-                            uint payload = (uint)VariantPayloadNumberBox.Value;
-                            arguments += $" /variantpayload:{payload}";
+                            arguments += $" /variantpayload:{VariantOptions.PayloadText}";
                         }
                     }
                 }
@@ -340,7 +325,10 @@ namespace ViVeToolGUI.Pages
                 if (result.ExitCode == 0)
                 {
                     MainWindow.Instance?.ShowTaskbarCompleted();
-                    OperationLogger.Append(idArg, enable ? "Enable" : "Disable");
+                    OperationLogger.Append(idArg, enable ? "Enable" : "Disable",
+                        VariantOptions.VariantNumberText,
+                        VariantOptions.PayloadKind,
+                        VariantOptions.PayloadText);
                     LoadHistory();
 
                     string successKey = enable
@@ -374,15 +362,45 @@ namespace ViVeToolGUI.Pages
             if (sender is MenuFlyoutItem item && item.CommandParameter is OperationRecord record &&
                 uint.TryParse(record.FeatureId, out uint id))
             {
+                string variant = record.Variant;
+                string payloadKind = record.PayloadKind;
+                string payload = record.Payload;
+                if (!string.IsNullOrWhiteSpace(variant))
+                {
+                    var variantDialog = new Dialogs.VariantSelectionDialog(variant, payloadKind, payload)
+                    {
+                        XamlRoot = this.XamlRoot
+                    };
+                    if (await variantDialog.ShowAsync() != ContentDialogResult.Primary)
+                        return;
+
+                    variant = variantDialog.VariantNumberText;
+                    payloadKind = variantDialog.PayloadKind;
+                    payload = variantDialog.PayloadText;
+                }
+
                 MainWindow.Instance?.ShowLoadingOverlay(GetResourceText("EnableDisable_EnableButton"));
                 MainWindow.Instance?.ShowTaskbarIndeterminate();
                 try
                 {
-                    var result = await MainWindow.ExecuteViVeToolCommandAsync($"/enable /id:{id}");
+                    string arguments = $"/enable /id:{id}";
+                    if (!string.IsNullOrWhiteSpace(variant))
+                    {
+                        arguments += $" /variant:{variant}";
+                        if (!string.IsNullOrWhiteSpace(payloadKind) &&
+                            !payloadKind.Equals("None", StringComparison.OrdinalIgnoreCase))
+                        {
+                            arguments += $" /variantpayloadkind:{payloadKind}";
+                            if (!string.IsNullOrWhiteSpace(payload))
+                                arguments += $" /variantpayload:{payload}";
+                        }
+                    }
+
+                    var result = await MainWindow.ExecuteViVeToolCommandAsync(arguments);
                     if (result.ExitCode == 0)
                     {
                         MainWindow.Instance?.ShowTaskbarCompleted();
-                        OperationLogger.Append(record.FeatureId, "Enable");
+                        OperationLogger.Append(record.FeatureId, "Enable", variant, payloadKind, payload);
                         LoadHistory();
                     }
                     else
@@ -529,14 +547,7 @@ namespace ViVeToolGUI.Pages
             DisableButton.IsEnabled = valid;
             RestoreButton.IsEnabled = valid;
             FeatureIDTextBox.IsEnabled = enabled;
-            VariantModeComboBox.IsEnabled = enabled;
-
-            bool custom = enabled && _variantMode == "Custom";
-            VariantNumberBox.IsEnabled = custom;
-            VariantPayloadKindComboBox.IsEnabled = custom;
-
-            bool hasPayloadKind = VariantPayloadKindComboBox.SelectedIndex == 1 || VariantPayloadKindComboBox.SelectedIndex == 2;
-            VariantPayloadNumberBox.IsEnabled = custom && hasPayloadKind;
+            VariantOptions.SetEnabled(enabled);
         }
 
         private async Task ShowErrorAsync(string message)

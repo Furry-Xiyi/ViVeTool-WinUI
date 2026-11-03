@@ -4,6 +4,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Tabular;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -152,6 +153,8 @@ namespace ViVeToolGUI.AppWindows
         private List<(int Index, int Field, int Pos)> _matches = new();
         private int _prevCurrentIndex = -1;
         private int _currentMatchIndex = -1;
+        private bool _searchPending;
+        private int _bringIntoViewVersion;
         public ObservableCollection<FeatureEntry> FilteredItems { get; } = new();
         private const int GWLP_WNDPROC = -4;
         private const uint WM_NCLBUTTONDBLCLK = 0x00A3;
@@ -166,6 +169,7 @@ namespace ViVeToolGUI.AppWindows
         private Storyboard? _spinStoryboard;
         private bool _isSpinning;
         private string _ctxIdCsv = "";
+        private string _ctxVariantOptions = "";
         private string _ctxCopyContent = "";
         private TextBlock? _ctxCopySourceTb;
 
@@ -220,8 +224,6 @@ namespace ViVeToolGUI.AppWindows
             _appWindow.Title = new ResourceLoader().GetString("TextFileViewerWindowTitle");
             _appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
             _appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-            _appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
-            _appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
 
             var presenter = OverlappedPresenter.Create();
             presenter.IsMinimizable = false;
@@ -232,12 +234,7 @@ namespace ViVeToolGUI.AppWindows
             _appWindow.SetPresenter(presenter);
             DisableDoubleClickMaximize();
 
-            this.SystemBackdrop = AppThemeManager.CurrentMaterial switch
-            {
-                BackgroundMaterial.MicaAlt => new MicaBackdrop { Kind = MicaKind.BaseAlt },
-                BackgroundMaterial.Acrylic => new DesktopAcrylicBackdrop(),
-                _ => new MicaBackdrop { Kind = MicaKind.Base }
-            };
+            this.SystemBackdrop = AppThemeManager.CreateSystemBackdrop(AppThemeManager.CurrentMaterial);
 
             _appWindow.Changed += AppWindow_Changed;
             this.Closed += TextFileViewerWindow_Closed;
@@ -253,6 +250,7 @@ namespace ViVeToolGUI.AppWindows
             if (_appWindow != null)
                 _appWindow.Changed -= AppWindow_Changed;
             _searchTimer?.Stop();
+            _bringIntoViewVersion++;
             _infoBarDismissTimer?.Stop();
             _fetchCts?.Cancel();
             _isSpinning = false;
@@ -267,6 +265,18 @@ namespace ViVeToolGUI.AppWindows
             this.SystemBackdrop = null;
         }
 
+        public static void ApplyTheme(ElementTheme theme)
+        {
+            if (_instance?.Content is FrameworkElement root)
+                root.RequestedTheme = theme;
+        }
+
+        public static void ApplyMaterial()
+        {
+            if (_instance != null)
+                _instance.SystemBackdrop = AppThemeManager.CreateSystemBackdrop(AppThemeManager.CurrentMaterial);
+        }
+
         private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
         {
             if (args.DidSizeChange)
@@ -276,25 +286,19 @@ namespace ViVeToolGUI.AppWindows
         private void RootGrid_Loaded(object sender, RoutedEventArgs e)
         {
             if (Content is FrameworkElement root)
+            {
                 root.RequestedTheme = AppThemeManager.CurrentTheme;
-
-            bool isDark = AppThemeManager.GetIsDarkTheme();
-            var fg = isDark ? Colors.White : Colors.Black;
-            var inactiveFg = isDark
-                ? Color.FromArgb(255, 128, 128, 128)
-                : Color.FromArgb(255, 160, 160, 160);
-            var hoverBg = isDark
-                ? Color.FromArgb(20, 255, 255, 255)
-                : Color.FromArgb(20, 0, 0, 0);
-
-            _appWindow.TitleBar.ButtonForegroundColor = fg;
-            _appWindow.TitleBar.ButtonInactiveForegroundColor = inactiveFg;
-            _appWindow.TitleBar.ButtonHoverBackgroundColor = hoverBg;
-            _appWindow.TitleBar.ButtonHoverForegroundColor = fg;
-            _appWindow.TitleBar.ButtonPressedBackgroundColor = Color.FromArgb(30, hoverBg.R, hoverBg.G, hoverBg.B);
-            _appWindow.TitleBar.ButtonPressedForegroundColor = fg;
+                root.ActualThemeChanged -= RootGrid_ActualThemeChanged;
+                root.ActualThemeChanged += RootGrid_ActualThemeChanged;
+                AppThemeManager.UpdateTitleBarColors(_appWindow.TitleBar, root.ActualTheme == ElementTheme.Dark);
+            }
 
             UpdateDragRects();
+        }
+
+        private void RootGrid_ActualThemeChanged(FrameworkElement sender, object args)
+        {
+            AppThemeManager.UpdateTitleBarColors(_appWindow.TitleBar, sender.ActualTheme == ElementTheme.Dark);
         }
 
         private void UpdateDragRects()
@@ -394,6 +398,7 @@ namespace ViVeToolGUI.AppWindows
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            _searchPending = true;
             _searchTimer.Stop();
             _searchTimer.Start();
         }
@@ -402,6 +407,7 @@ namespace ViVeToolGUI.AppWindows
 
         private void ApplySearch()
         {
+            _searchPending = false;
             string query = SearchBox.Text.Trim();
             bool caseSensitive = MatchCaseToggle.IsChecked == true;
 
@@ -466,11 +472,17 @@ namespace ViVeToolGUI.AppWindows
             FilteredItems[idx].CurrentField = field;
             FilteredItems[idx].CurrentMatchPos = pos;
             _prevCurrentIndex = idx;
-
+            _ = BringMatchRowIntoViewAsync(idx);
         }
 
         private void NextButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_searchPending)
+            {
+                _searchTimer.Stop();
+                ApplySearch();
+                return;
+            }
             if (_matches.Count == 0) return;
             _currentMatchIndex = (_currentMatchIndex + 1) % _matches.Count;
             HighlightCurrentMatch();
@@ -479,10 +491,96 @@ namespace ViVeToolGUI.AppWindows
 
         private void PrevButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_searchPending)
+            {
+                _searchTimer.Stop();
+                ApplySearch();
+                return;
+            }
             if (_matches.Count == 0) return;
             _currentMatchIndex = (_currentMatchIndex - 1 + _matches.Count) % _matches.Count;
             HighlightCurrentMatch();
             MatchCountText.Text = $"{_currentMatchIndex + 1}/{_matches.Count}";
+        }
+
+        private async Task BringMatchRowIntoViewAsync(int targetIndex)
+        {
+            if (targetIndex < 0 || targetIndex >= FilteredItems.Count)
+                return;
+
+            int version = ++_bringIntoViewVersion;
+            await Task.Delay(40);
+            if (version != _bringIntoViewVersion)
+                return;
+
+            var scrollViewer = FindVisualDescendants<ScrollViewer>(FeaturesTableView)
+                .OrderByDescending(viewer => viewer.ScrollableHeight)
+                .FirstOrDefault();
+            if (scrollViewer == null || scrollViewer.ScrollableHeight <= 0)
+                return;
+
+            var visibleRows = GetVisibleMatchRows();
+            double averageRowHeight = visibleRows.Count > 0
+                ? visibleRows.Average(row => row.Row.ActualHeight)
+                : 40;
+
+            if (!visibleRows.Any(row => row.Index == targetIndex))
+            {
+                double initialOffset = Math.Max(0, targetIndex * averageRowHeight - averageRowHeight);
+                scrollViewer.ChangeView(null, Math.Min(initialOffset, scrollViewer.ScrollableHeight), null, true);
+            }
+
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                await Task.Delay(50);
+                if (version != _bringIntoViewVersion)
+                    return;
+
+                visibleRows = GetVisibleMatchRows();
+                var matchRow = visibleRows.FirstOrDefault(row => row.Index == targetIndex).Row;
+                if (matchRow != null)
+                {
+                    matchRow.StartBringIntoView();
+                    return;
+                }
+
+                if (visibleRows.Count == 0)
+                    continue;
+
+                averageRowHeight = visibleRows.Average(row => Math.Max(1, row.Row.ActualHeight));
+                int visibleMiddleIndex = visibleRows[visibleRows.Count / 2].Index;
+                double correctedOffset = scrollViewer.VerticalOffset + (targetIndex - visibleMiddleIndex) * averageRowHeight;
+                correctedOffset = Math.Max(0, Math.Min(correctedOffset, scrollViewer.ScrollableHeight));
+                scrollViewer.ChangeView(null, correctedOffset, null, true);
+            }
+        }
+
+        private List<(int Index, TableViewRow Row)> GetVisibleMatchRows()
+        {
+            var rows = new List<(int Index, TableViewRow Row)>();
+            foreach (var row in FindVisualDescendants<TableViewRow>(FeaturesTableView))
+            {
+                if (row.DataContext is FeatureEntry item)
+                {
+                    int index = FilteredItems.IndexOf(item);
+                    if (index >= 0 && row.ActualHeight > 0)
+                        rows.Add((index, row));
+                }
+            }
+            return rows.OrderBy(row => row.Index).ToList();
+        }
+
+        private static IEnumerable<T> FindVisualDescendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            if (root is T match)
+                yield return match;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < childCount; i++)
+            {
+                foreach (var child in FindVisualDescendants<T>(VisualTreeHelper.GetChild(root, i)))
+                    yield return child;
+            }
         }
 
         private static readonly System.Text.RegularExpressions.Regex _idPattern =
@@ -582,6 +680,7 @@ namespace ViVeToolGUI.AppWindows
             bool hasSelection = !string.IsNullOrEmpty(selectedText);
             bool isIdSelection = hasSelection && _idPattern.IsMatch(selectedText);
             _ctxIdCsv = isIdSelection ? NormalizeIdCsv(selectedText) : fe.Id;
+            _ctxVariantOptions = !hasSelection && _ctxIdCsv == fe.Id ? fe.Variant : "";
             _ctxCopyContent = hasSelection ? selectedText : fe.Id;
             isCopyId = !hasSelection;
             _ctxCopySourceTb = selectedTextBlock;
@@ -599,7 +698,7 @@ namespace ViVeToolGUI.AppWindows
             RowContextMenu.ShowAt(target, new FlyoutShowOptions { Position = pos });
         }
 
-        private async void CmdEnable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Enable");
+        private async void CmdEnable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Enable", _ctxVariantOptions);
 
         private async void CmdDisable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Disable");
 
@@ -614,7 +713,7 @@ namespace ViVeToolGUI.AppWindows
 
         private void CmdSelectAll_Click(object sender, RoutedEventArgs e) => _ctxCopySourceTb?.SelectAll();
 
-        private async System.Threading.Tasks.Task ExecuteFeatureAsync(string idCsv, string action)
+        private async System.Threading.Tasks.Task ExecuteFeatureAsync(string idCsv, string action, string variantOptions = null)
         {
             var rl = new ResourceLoader();
             string busyText = action switch
@@ -624,6 +723,28 @@ namespace ViVeToolGUI.AppWindows
                 "Restore" => rl.GetString("EnableDisable_RestoreButton/Text"),
                 _ => ""
             };
+
+            string variant = null;
+            string payloadKind = null;
+            string payload = null;
+            if (action == "Enable" && !string.IsNullOrWhiteSpace(variantOptions))
+            {
+                var firstVariant = System.Text.RegularExpressions.Regex.Match(variantOptions, @"\d+").Value;
+                if (!string.IsNullOrWhiteSpace(firstVariant))
+                {
+                    var variantDialog = new ViVeToolGUI.Dialogs.VariantSelectionDialog(firstVariant)
+                    {
+                        XamlRoot = this.Content.XamlRoot
+                    };
+                    if (await variantDialog.ShowAsync() != ContentDialogResult.Primary)
+                        return;
+
+                    variant = variantDialog.VariantNumberText;
+                    payloadKind = variantDialog.PayloadKind;
+                    payload = variantDialog.PayloadText;
+                }
+            }
+
             ShowLoadingOverlay(busyText);
             MainWindow.Instance?.ShowTaskbarIndeterminate();
 
@@ -636,7 +757,7 @@ namespace ViVeToolGUI.AppWindows
                 return;
             }
 
-            var (ok, msg) = await page.RunFeatureCommandAsync(idCsv, action);
+            var (ok, msg) = await page.RunFeatureCommandAsync(idCsv, action, variant, payloadKind, payload);
             HideLoadingOverlay();
 
             if (ok)

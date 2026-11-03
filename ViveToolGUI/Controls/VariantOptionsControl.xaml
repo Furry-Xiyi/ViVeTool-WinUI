@@ -1,0 +1,80 @@
+<UserControl
+    x:Class="ViVeToolGUI.Controls.VariantOptionsControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Expander x:Name="VariantExpander"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch"
+              MinHeight="70">
+        <Expander.Header>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <FontIcon Glyph="&#xEC7A;" Width="25" FontSize="20"/>
+                <StackPanel Margin="5,0,0,0">
+                    <TextBlock x:Uid="EnableDisable_Variant" FontSize="14.4"/>
+                    <TextBlock x:Uid="EnableDisable_VariantDescription"
+                               FontSize="12" Opacity="0.8"/>
+                </StackPanel>
+            </StackPanel>
+        </Expander.Header>
+
+        <Grid ColumnSpacing="16" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       x:Uid="EnableDisable_Variant"
+                       VerticalAlignment="Center" Opacity="0.8"/>
+
+            <ComboBox x:Name="VariantModeComboBox"
+                      Grid.Row="0" Grid.Column="1"
+                      Width="150" HorizontalAlignment="Left"
+                      SelectionChanged="VariantModeComboBox_SelectionChanged">
+                <ComboBoxItem x:Uid="VariantMode_None" IsSelected="True" Tag="None"/>
+                <ComboBoxItem x:Uid="VariantMode_Custom" Tag="Custom"/>
+            </ComboBox>
+
+            <TextBlock x:Name="VariantNumberLabel" Grid.Row="1" Grid.Column="0"
+                       x:Uid="EnableDisable_VariantNumber"
+                       VerticalAlignment="Center" Opacity="0.8"
+                       Visibility="Collapsed"/>
+
+            <StackPanel x:Name="VariantNumberPanel" Grid.Row="1" Grid.Column="1"
+                        Orientation="Horizontal" Spacing="8"
+                        Visibility="Collapsed">
+                <NumberBox x:Name="VariantNumberBox"
+                           Width="150" HorizontalAlignment="Left"
+                           Minimum="0" Maximum="4294967295"
+                           SpinButtonPlacementMode="Compact"
+                           PlaceholderText="0"/>
+                <ComboBox x:Name="VariantPayloadKindComboBox"
+                          HorizontalAlignment="Left"
+                          SelectionChanged="VariantPayloadKindComboBox_SelectionChanged">
+                    <ComboBoxItem x:Uid="VariantPayloadKind_None" IsSelected="True" Tag="None"/>
+                    <ComboBoxItem x:Uid="VariantPayloadKind_Resident" Tag="Resident"/>
+                    <ComboBoxItem x:Uid="VariantPayloadKind_External" Tag="External"/>
+                </ComboBox>
+            </StackPanel>
+
+            <TextBlock x:Name="VariantPayloadLabel" Grid.Row="2" Grid.Column="0"
+                       x:Uid="EnableDisable_VariantPayload"
+                       VerticalAlignment="Center" Opacity="0.8"
+                       Visibility="Collapsed"/>
+
+            <NumberBox x:Name="VariantPayloadNumberBox"
+                       Grid.Row="2" Grid.Column="1"
+                       Width="150" HorizontalAlignment="Left"
+                       Minimum="0" Maximum="4294967295"
+                       SpinButtonPlacementMode="Compact"
+                       PlaceholderText="0"
+                       Visibility="Collapsed"/>
+        </Grid>
+    </Expander>
+</UserControl>

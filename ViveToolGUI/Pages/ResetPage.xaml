@@ -17,6 +17,22 @@
                           IsOpen="True"
                           IsClosable="False"/>
 
+            <controls:SettingsCard x:Uid="Reset_ManualCard"
+                       HorizontalAlignment="Stretch"
+                       HorizontalContentAlignment="Stretch"
+                       MinHeight="70"
+                       Padding="16,0">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE777;" />
+                </controls:SettingsCard.HeaderIcon>
+                <StackPanel Spacing="16">
+                    <Button x:Name="ResetManualButton"
+                            x:Uid="Reset_ManualButton"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Click="ResetManualButton_Click"/>
+                </StackPanel>
+            </controls:SettingsCard>
+
             <controls:SettingsCard x:Uid="Reset_StandardCard"
                        HorizontalAlignment="Stretch"
                        HorizontalContentAlignment="Stretch"
@@ -34,16 +50,6 @@
                 </StackPanel>
             </controls:SettingsCard>
 
-            <Border x:Name="ResultBorder"
-                    BorderThickness="1"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    CornerRadius="8"
-                    Padding="16"
-                    Visibility="Collapsed">
-                <TextBlock x:Name="ResultText"
-                           TextWrapping="Wrap"/>
-            </Border>
         </StackPanel>
     </ScrollViewer>
 </Page>

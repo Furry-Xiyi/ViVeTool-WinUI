@@ -1,0 +1,19 @@
+<ContentDialog
+    x:Class="ViVeToolGUI.Dialogs.VariantSelectionDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:ViVeToolGUI.Controls"
+    PrimaryButtonText=""
+    CloseButtonText=""
+    DefaultButton="Primary"
+    PrimaryButtonClick="VariantSelectionDialog_PrimaryButtonClick"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <StackPanel Spacing="8">
+        <controls:VariantOptionsControl x:Name="Options"/>
+        <TextBlock x:Name="ValidationText"
+                   x:Uid="EnableDisable_InvalidVariant"
+                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                   Visibility="Collapsed"/>
+    </StackPanel>
+</ContentDialog>

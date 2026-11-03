@@ -56,6 +56,7 @@
                                   IsReadOnly="True">
                         <tabular:TableView.Resources>
                             <Style TargetType="tabular:TableViewRow">
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
                                 <Setter Property="ContextFlyout">
                                     <Setter.Value>
                                         <MenuFlyout Opening="MenuFlyout_Opening">
@@ -79,7 +80,7 @@
                         </tabular:TableView.Resources>
                             <tabular:TableViewTemplateColumn x:Name="QueryIdColumn" Width="160">
                                 <tabular:TableViewTemplateColumn.Header>
-                                    <TextBlock x:Uid="Query_HeaderID" FontWeight="SemiBold"/>
+                                    <TextBlock x:Uid="Query_HeaderID" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 </tabular:TableViewTemplateColumn.Header>
                                 <tabular:TableViewTemplateColumn.CellTemplate>
                                     <DataTemplate x:DataType="local:FeatureInfo">
@@ -101,14 +102,59 @@
                                                     </MenuFlyoutItem>
                                                 </MenuFlyout>
                                             </Grid.ContextFlyout>
-                                            <TextBlock Text="{x:Bind Id}" FontFamily="Consolas"/>
+                                            <TextBlock Text="{x:Bind Id}" FontFamily="Consolas" VerticalAlignment="Center"/>
                                         </Grid>
                                     </DataTemplate>
                                 </tabular:TableViewTemplateColumn.CellTemplate>
                             </tabular:TableViewTemplateColumn>
-                            <tabular:TableViewTextColumn x:Name="QueryStateColumn" Binding="{Binding State}" Width="160"/>
-                            <tabular:TableViewTextColumn x:Name="QueryVariantColumn" Binding="{Binding Variant}" Width="160"/>
-                            <tabular:TableViewTextColumn x:Name="QueryPayloadColumn" Binding="{Binding VariantPayload}" Width="*"/>
+                            <tabular:TableViewTemplateColumn x:Name="QueryStateColumn" Width="160">
+                                <tabular:TableViewTemplateColumn.Header>
+                                    <TextBlock x:Uid="Query_HeaderState" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </tabular:TableViewTemplateColumn.Header>
+                                <tabular:TableViewTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="local:FeatureInfo">
+                                        <Grid Padding="12,6" VerticalAlignment="Stretch">
+                                            <TextBlock Text="{x:Bind State, Mode=OneWay}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </tabular:TableViewTemplateColumn.CellTemplate>
+                            </tabular:TableViewTemplateColumn>
+                            <tabular:TableViewTemplateColumn x:Name="QueryTypeColumn" Width="160">
+                                <tabular:TableViewTemplateColumn.Header>
+                                    <TextBlock x:Uid="Query_HeaderType" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </tabular:TableViewTemplateColumn.Header>
+                                <tabular:TableViewTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="local:FeatureInfo">
+                                        <Grid Padding="12,6" VerticalAlignment="Stretch">
+                                            <TextBlock Text="{x:Bind Type}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </tabular:TableViewTemplateColumn.CellTemplate>
+                            </tabular:TableViewTemplateColumn>
+                            <tabular:TableViewTemplateColumn x:Name="QueryVariantColumn" Width="100">
+                                <tabular:TableViewTemplateColumn.Header>
+                                    <TextBlock x:Uid="Query_HeaderVariant" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </tabular:TableViewTemplateColumn.Header>
+                                <tabular:TableViewTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="local:FeatureInfo">
+                                        <Grid Padding="12,6" VerticalAlignment="Stretch">
+                                            <TextBlock Text="{x:Bind Variant}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </tabular:TableViewTemplateColumn.CellTemplate>
+                            </tabular:TableViewTemplateColumn>
+                            <tabular:TableViewTemplateColumn x:Name="QueryPayloadColumn" Width="*">
+                                <tabular:TableViewTemplateColumn.Header>
+                                    <TextBlock x:Uid="Query_HeaderVariantPayload" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </tabular:TableViewTemplateColumn.Header>
+                                <tabular:TableViewTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="local:FeatureInfo">
+                                        <Grid Padding="12,6" VerticalAlignment="Stretch">
+                                            <TextBlock Text="{x:Bind Description}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </tabular:TableViewTemplateColumn.CellTemplate>
+                            </tabular:TableViewTemplateColumn>
                     </tabular:TableView>
                 </Grid>
             </Border>

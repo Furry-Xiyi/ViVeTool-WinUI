@@ -21,7 +21,8 @@ namespace ViVeToolGUI
         public static MainWindow MainWindowInstance => MainWindow as MainWindow;
         public static string ViVeToolPath { get; private set; }
 
-        private static bool _vivetoolInitialized = false;
+        private static readonly object _viVeToolInitializationLock = new();
+        private static Task<bool>? _viVeToolInitializationTask;
 
         public App()
         {
@@ -55,8 +56,6 @@ namespace ViVeToolGUI
 
             MainWindow = new MainWindow();
 
-            AppThemeManager.SetupTitleBar();
-
             MainWindow.Activate();
 
             _ = InitializeAppAfterSplashAsync();
@@ -66,7 +65,7 @@ namespace ViVeToolGUI
         {
             await Task.Delay(50);
 
-            _ = InitializeViVeToolAsync();
+            _ = EnsureViVeToolInitializedAsync();
 
             var mw = (MainWindow)MainWindow;
 
@@ -88,11 +87,14 @@ namespace ViVeToolGUI
             });
         }
 
-        private async Task InitializeViVeToolAsync()
+        private static Task<bool> GetViVeToolInitializationTask()
         {
-            if (_vivetoolInitialized)
-                return;
+            lock (_viVeToolInitializationLock)
+                return _viVeToolInitializationTask ??= InitializeViVeToolAsync();
+        }
 
+        private static async Task<bool> InitializeViVeToolAsync()
+        {
             try
             {
                 Debug.WriteLine("[InitViVeTool] Starting initialization...");
@@ -122,31 +124,22 @@ namespace ViVeToolGUI
                     await file.CopyAsync(targetFolder, file.Name, NameCollisionOption.ReplaceExisting);
 
                 ViVeToolPath = targetExe;
-                _vivetoolInitialized = File.Exists(targetExe);
+                bool initialized = File.Exists(targetExe);
 
                 Debug.WriteLine($"[InitViVeTool] Path: {ViVeToolPath}");
-                Debug.WriteLine($"[InitViVeTool] Initialized: {_vivetoolInitialized}");
+                Debug.WriteLine($"[InitViVeTool] Initialized: {initialized}");
+                return initialized;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[InitViVeTool] ERROR: {ex}");
+                return false;
             }
         }
 
         public static async Task<bool> EnsureViVeToolInitializedAsync()
         {
-            if (_vivetoolInitialized)
-                return true;
-
-            for (int i = 0; i < 50; i++)
-            {
-                if (_vivetoolInitialized)
-                    return true;
-
-                await Task.Delay(100);
-            }
-
-            return _vivetoolInitialized;
+            return await GetViVeToolInitializationTask();
         }
 
         [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
@@ -215,23 +208,19 @@ namespace ViVeToolGUI
 
             try
             {
+                var backdrop = CreateSystemBackdrop(CurrentMaterial);
+
                 if (App.MainWindow.SystemBackdrop is MicaBackdrop mica)
                 {
                     if (CurrentMaterial == BackgroundMaterial.Mica && mica.Kind == MicaKind.Base) return;
                     if (CurrentMaterial == BackgroundMaterial.MicaAlt && mica.Kind == MicaKind.BaseAlt) return;
                 }
-                else if (App.MainWindow.SystemBackdrop is DesktopAcrylicBackdrop &&
-                         CurrentMaterial == BackgroundMaterial.Acrylic)
+                else if (App.MainWindow.SystemBackdrop is DesktopAcrylicBackdrop && backdrop is DesktopAcrylicBackdrop)
                 {
                     return;
                 }
 
-                App.MainWindow.SystemBackdrop = CurrentMaterial switch
-                {
-                    BackgroundMaterial.MicaAlt => new MicaBackdrop { Kind = MicaKind.BaseAlt },
-                    BackgroundMaterial.Acrylic => new DesktopAcrylicBackdrop(),
-                    _ => new MicaBackdrop { Kind = MicaKind.Base }
-                };
+                App.MainWindow.SystemBackdrop = backdrop;
             }
             catch (Exception ex)
             {
@@ -240,25 +229,15 @@ namespace ViVeToolGUI
             }
         }
 
-        public static void SetupTitleBar()
+        public static SystemBackdrop? CreateSystemBackdrop(BackgroundMaterial material)
         {
-            if (App.MainWindow == null) return;
-
-            try
+            return material switch
             {
-                if (!AppWindowTitleBar.IsCustomizationSupported()) return;
-
-                var titleBar = App.MainWindow.AppWindow.TitleBar;
-                titleBar.ExtendsContentIntoTitleBar = true;
-                titleBar.ButtonBackgroundColor = Colors.Transparent;
-                titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-
-                UpdateTitleBarColors();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"SetupTitleBar failed: {ex.Message}");
-            }
+                BackgroundMaterial.MicaAlt => new MicaBackdrop { Kind = MicaKind.BaseAlt },
+                // WinUI Gallery's built-in Desktop Acrylic backdrop uses the Base kind.
+                BackgroundMaterial.Acrylic => new DesktopAcrylicBackdrop(),
+                _ => new MicaBackdrop { Kind = MicaKind.Base }
+            };
         }
 
         public static void UpdateTitleBarColors()
@@ -269,23 +248,7 @@ namespace ViVeToolGUI
             {
                 if (!AppWindowTitleBar.IsCustomizationSupported()) return;
 
-                var titleBar = App.MainWindow.AppWindow.TitleBar;
-                bool isDark = GetIsDarkTheme();
-
-                var fg = isDark ? Colors.White : Colors.Black;
-                var inactiveFg = isDark
-                    ? Color.FromArgb(255, 128, 128, 128)
-                    : Color.FromArgb(255, 160, 160, 160);
-                var hoverBg = isDark
-                    ? Color.FromArgb(20, 255, 255, 255)
-                    : Color.FromArgb(20, 0, 0, 0);
-
-                titleBar.ButtonForegroundColor = fg;
-                titleBar.ButtonInactiveForegroundColor = inactiveFg;
-                titleBar.ButtonHoverBackgroundColor = hoverBg;
-                titleBar.ButtonHoverForegroundColor = fg;
-                titleBar.ButtonPressedBackgroundColor = Color.FromArgb(30, hoverBg.R, hoverBg.G, hoverBg.B);
-                titleBar.ButtonPressedForegroundColor = fg;
+                UpdateTitleBarColors(App.MainWindow.AppWindow.TitleBar, GetIsDarkTheme());
             }
             catch (Exception ex)
             {
@@ -295,7 +258,22 @@ namespace ViVeToolGUI
 
         public static void OnActualThemeChanged(FrameworkElement sender, object args)
         {
-            UpdateTitleBarColors();
+            UpdateTitleBarColors(App.MainWindow?.AppWindow.TitleBar, sender.ActualTheme == ElementTheme.Dark);
+        }
+
+        public static void UpdateTitleBarColors(AppWindowTitleBar? titleBar, bool isDark)
+        {
+            if (titleBar == null || !AppWindowTitleBar.IsCustomizationSupported()) return;
+
+            var foreground = isDark ? Colors.White : Colors.Black;
+            var hoverBackground = isDark
+                ? Color.FromArgb(24, 255, 255, 255)
+                : Color.FromArgb(24, 0, 0, 0);
+
+            // Match WinUI Gallery: leave default, inactive, and pressed states to Windows.
+            titleBar.ButtonForegroundColor = foreground;
+            titleBar.ButtonHoverForegroundColor = foreground;
+            titleBar.ButtonHoverBackgroundColor = hoverBackground;
         }
 
         public static bool GetIsDarkTheme()

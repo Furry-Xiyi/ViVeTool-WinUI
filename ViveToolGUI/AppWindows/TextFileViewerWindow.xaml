@@ -82,7 +82,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <ToggleButton x:Name="MatchCaseToggle" x:Uid="TextFileViewerWindowMatchCaseToggle" Grid.Column="0" Padding="0" Width="32" Height="32" Background="Transparent" Style="{StaticResource ToggleButtonRevealStyle}" Margin="0,0,8,0" Opacity="0" IsHitTestVisible="False" Click="MatchCaseToggle_Click">
+                <ToggleButton x:Name="MatchCaseToggle" x:Uid="TextFileViewerWindowMatchCaseToggle" Grid.Column="0" Padding="0" Width="32" Height="32" Background="Transparent" BorderBrush="Transparent" Margin="0,0,8,0" Opacity="0" IsHitTestVisible="False" Click="MatchCaseToggle_Click">
                     <ToggleButton.RenderTransform>
                         <TranslateTransform x:Name="MatchCaseToggleTransform" X="36"/>
                     </ToggleButton.RenderTransform>
@@ -127,6 +127,7 @@
                       IsReadOnly="True">
             <tabular:TableView.Resources>
                 <Style TargetType="tabular:TableViewRow">
+                    <Setter Property="VerticalContentAlignment" Value="Center"/>
                     <Setter Property="ContextFlyout">
                         <Setter.Value>
                             <MenuFlyout Opening="FeatureRowMenuFlyout_Opening">
@@ -143,11 +144,11 @@
             </tabular:TableView.Resources>
                 <tabular:TableViewTemplateColumn x:Name="ColIdColumn" Width="200">
                     <tabular:TableViewTemplateColumn.Header>
-                        <TextBlock x:Uid="ColIdHeader" FontWeight="SemiBold" FontSize="14" TextWrapping="NoWrap"/>
+                        <TextBlock x:Uid="ColIdHeader" FontWeight="SemiBold" FontSize="14" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                     </tabular:TableViewTemplateColumn.Header>
                     <tabular:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="local:FeatureEntry">
-                            <Grid Padding="12,4" Background="Transparent">
+                            <Grid Padding="12,4" Background="Transparent" VerticalAlignment="Stretch">
                                 <Grid.ContextFlyout>
                                     <MenuFlyout Opening="FeatureRowMenuFlyout_Opening">
                                         <MenuFlyoutItem x:Uid="Menu_EnableFeature" Click="CmdEnable_Click"><MenuFlyoutItem.Icon><FontIcon Glyph="&#xE73E;"/></MenuFlyoutItem.Icon></MenuFlyoutItem>
@@ -171,11 +172,11 @@
                 </tabular:TableViewTemplateColumn>
                 <tabular:TableViewTemplateColumn x:Name="ColVariantColumn" Width="120">
                     <tabular:TableViewTemplateColumn.Header>
-                        <TextBlock x:Uid="ColVariantHeader" FontWeight="SemiBold" FontSize="14" TextWrapping="NoWrap"/>
+                        <TextBlock x:Uid="ColVariantHeader" FontWeight="SemiBold" FontSize="14" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                     </tabular:TableViewTemplateColumn.Header>
                     <tabular:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="local:FeatureEntry">
-                            <Grid Padding="12,4" Background="Transparent">
+                            <Grid Padding="12,4" Background="Transparent" VerticalAlignment="Stretch">
                                 <TextBlock VerticalAlignment="Center" IsTextSelectionEnabled="True" TextWrapping="NoWrap" SelectionFlyout="{x:Null}"
                                            local:SearchHighlight.SourceText="{x:Bind Variant}"
                                            local:SearchHighlight.Query="{x:Bind Query, Mode=OneWay}"
@@ -188,12 +189,12 @@
                 </tabular:TableViewTemplateColumn>
                 <tabular:TableViewTemplateColumn x:Name="ColDescriptionColumn" Width="*">
                     <tabular:TableViewTemplateColumn.Header>
-                        <TextBlock x:Uid="ColDescriptionHeader" FontWeight="SemiBold" FontSize="14" TextWrapping="NoWrap"/>
+                        <TextBlock x:Uid="ColDescriptionHeader" FontWeight="SemiBold" FontSize="14" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                     </tabular:TableViewTemplateColumn.Header>
                     <tabular:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="local:FeatureEntry">
-                            <Grid Padding="12,4" Background="Transparent">
-                                <TextBlock VerticalAlignment="Top" IsTextSelectionEnabled="True" TextWrapping="Wrap" SelectionFlyout="{x:Null}"
+                            <Grid Padding="12,4" Background="Transparent" VerticalAlignment="Stretch">
+                                <TextBlock VerticalAlignment="Center" IsTextSelectionEnabled="True" TextWrapping="Wrap" SelectionFlyout="{x:Null}"
                                            local:SearchHighlight.SourceText="{x:Bind Description}"
                                            local:SearchHighlight.Query="{x:Bind Query, Mode=OneWay}"
                                            local:SearchHighlight.CaseSensitive="{x:Bind CaseSensitive, Mode=OneWay}"

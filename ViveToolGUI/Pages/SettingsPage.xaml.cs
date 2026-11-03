@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Diagnostics;
+using ViVeToolGUI.AppWindows;
 using Windows.ApplicationModel;
 using Windows.Storage;
 
@@ -101,6 +102,8 @@ namespace ViVeToolGUI.Pages
             if (App.MainWindow?.Content is FrameworkElement root)
                 root.RequestedTheme = theme;
 
+            TextFileViewerWindow.ApplyTheme(theme);
+
             AppThemeManager.UpdateTitleBarColors();
         }
 
@@ -125,6 +128,7 @@ namespace ViVeToolGUI.Pages
             };
 
             AppThemeManager.ApplyMaterial();
+            TextFileViewerWindow.ApplyMaterial();
         }
 
         private void PanePositionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

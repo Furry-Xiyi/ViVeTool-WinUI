@@ -70,10 +70,6 @@ namespace ViVeToolGUI
             if (Content is FrameworkElement root)
                 root.RequestedTheme = AppThemeManager.CurrentTheme;
 
-            ExtendsContentIntoTitleBar = true;
-            this.AppWindow.TitleBar.PreferredHeightOption = Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
-            this.SetTitleBar(TitleBarArea);
-
             ContentFrame.Navigated += ContentFrame_Navigated;
             this.Activated += MainWindow_Activated;
             this.Closed += MainWindow_Closed;
@@ -239,7 +235,7 @@ namespace ViVeToolGUI
             UpdateBackButton();
             UpdateSelectedNavItem(e.SourcePageType);
             UpdateBreadcrumb(e.SourcePageType);
-            UpdateIconMargin();
+            UpdateTitleBarMargin();
         }
 
         private void UpdateBackButton()
@@ -247,25 +243,17 @@ namespace ViVeToolGUI
             BackButton.Visibility = ContentFrame.CanGoBack ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void UpdateIconMargin()
+        private void UpdateTitleBarMargin()
         {
-            var targetImgMargin = ContentFrame.CanGoBack
-                ? new Thickness(50, 16, 0, 0)
-                : new Thickness(18, 16, 0, 0);
-            var targetTitleMargin = ContentFrame.CanGoBack
-                ? new Thickness(50, 0, 0, 0)
-                : new Thickness(18, 0, 0, 0);
-            var targetContentMargin = ContentFrame.CanGoBack
-                ? new Thickness(78, 13, 0, 0)
-                : new Thickness(46, 13, 0, 0);
+            var targetMargin = ContentFrame.CanGoBack
+                ? new Thickness(34, 0, 0, 0)
+                : new Thickness(2, 0, 0, 0);
 
-            if (!ImgAppIcon.Margin.Equals(targetImgMargin) || !TitleBarArea.Margin.Equals(targetTitleMargin) || !TitleBarContent.Margin.Equals(targetContentMargin))
+            if (!TitleBarArea.Margin.Equals(targetMargin))
             {
                 this.DispatcherQueue.TryEnqueue(() =>
                 {
-                    ImgAppIcon.Margin = targetImgMargin;
-                    TitleBarArea.Margin = targetTitleMargin;
-                    TitleBarContent.Margin = targetContentMargin;
+                    TitleBarArea.Margin = targetMargin;
                 });
             }
         }
@@ -321,7 +309,6 @@ namespace ViVeToolGUI
         {
             bool isActive = args.WindowActivationState != WindowActivationState.Deactivated;
             IsWindowActivated = isActive;
-            TitleBarAppName.Opacity = isActive ? 1.0 : 0.5;
             if (isActive)
                 ClearBadge();
         }
@@ -442,12 +429,24 @@ namespace ViVeToolGUI
             Environment.Exit(0);
         }
 
-        public static async Task<CommandResult> ExecuteViVeToolCommandAsync(string arguments)
+        public static async Task<CommandResult> ExecuteViVeToolCommandAsync(
+            string arguments, Func<Task<bool>>? consoleConfirmation = null)
         {
             await _commandLock.WaitAsync();
 
             try
             {
+                bool requiresConsoleConfirmation = string.Equals(
+                    arguments.TrimStart().Split(' ', 2)[0], "/fullreset", StringComparison.OrdinalIgnoreCase);
+                if (requiresConsoleConfirmation && consoleConfirmation == null)
+                {
+                    return new CommandResult
+                    {
+                        ExitCode = -1,
+                        Error = "The full reset command requires a confirmation callback."
+                    };
+                }
+
                 if (!await App.EnsureViVeToolInitializedAsync())
                 {
                     return new CommandResult { ExitCode = -1, Output = "", Error = "ViVeTool initialization failed." };
@@ -500,6 +499,23 @@ echo EXIT_CODE=%ERRORLEVEL% >> ""{outputFile}""
                     {
                         try { File.Delete(batchFile); } catch { }
                         return new CommandResult { ExitCode = -1, Output = "", Error = "Failed to start elevated process." };
+                    }
+
+                    if (requiresConsoleConfirmation)
+                    {
+                        try
+                        {
+                            bool confirmed = await consoleConfirmation!();
+                            await Task.Run(() => SendConsoleKeyToProcess(proc.Id, confirmed ? 'Y' : 'N'));
+                        }
+                        catch (Exception ex)
+                        {
+                            try { proc.Kill(entireProcessTree: true); } catch { }
+                            try { File.Delete(batchFile); } catch { }
+                            try { File.Delete(outputFile); } catch { }
+                            throw new InvalidOperationException(
+                                $"Could not send the reset confirmation to ViVeTool: {ex.Message}", ex);
+                        }
                     }
 
                     await Task.Run(() =>
@@ -557,6 +573,72 @@ echo EXIT_CODE=%ERRORLEVEL% >> ""{outputFile}""
             finally
             {
                 _commandLock.Release();
+            }
+        }
+
+        private static void SendConsoleKeyToProcess(int processId, char character)
+        {
+            int lastError = 0;
+            bool attached = false;
+            for (int attempt = 0; attempt < 40; attempt++)
+            {
+                FreeConsole();
+                if (AttachConsole((uint)processId))
+                {
+                    attached = true;
+                    break;
+                }
+
+                lastError = Marshal.GetLastWin32Error();
+                Thread.Sleep(50);
+            }
+
+            if (!attached)
+                throw new System.ComponentModel.Win32Exception(lastError);
+
+            try
+            {
+                IntPtr inputHandle = CreateFileW(
+                    "CONIN$",
+                    GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    IntPtr.Zero,
+                    OPEN_EXISTING,
+                    0,
+                    IntPtr.Zero);
+                if (inputHandle == INVALID_HANDLE_VALUE)
+                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+
+                try
+                {
+                    ushort virtualKey = character;
+                    var keyDown = new KeyEventRecord
+                    {
+                        KeyDown = true,
+                        RepeatCount = 1,
+                        VirtualKeyCode = virtualKey,
+                        UnicodeChar = character
+                    };
+                    var keyUp = keyDown;
+                    keyUp.KeyDown = false;
+
+                    var input = new[]
+                    {
+                        new InputRecord { EventType = KEY_EVENT, KeyEvent = keyDown },
+                        new InputRecord { EventType = KEY_EVENT, KeyEvent = keyUp }
+                    };
+
+                    if (!WriteConsoleInputW(inputHandle, input, (uint)input.Length, out uint written) || written != input.Length)
+                        throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                }
+                finally
+                {
+                    CloseHandle(inputHandle);
+                }
+            }
+            finally
+            {
+                FreeConsole();
             }
         }
 
@@ -672,6 +754,62 @@ echo EXIT_CODE=%ERRORLEVEL% >> ""{outputFile}""
         [DllImport("comctl32.dll")]
         static extern nuint DefSubclassProc(IntPtr hWnd, uint uMsg, nuint wParam, nint lParam);
 
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint GENERIC_WRITE = 0x40000000;
+        private const uint FILE_SHARE_READ = 0x00000001;
+        private const uint FILE_SHARE_WRITE = 0x00000002;
+        private const uint OPEN_EXISTING = 3;
+        private const ushort KEY_EVENT = 0x0001;
+        private static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct InputRecord
+        {
+            [FieldOffset(0)]
+            public ushort EventType;
+
+            [FieldOffset(4)]
+            public KeyEventRecord KeyEvent;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KeyEventRecord
+        {
+            [MarshalAs(UnmanagedType.Bool)]
+            public bool KeyDown;
+            public ushort RepeatCount;
+            public ushort VirtualKeyCode;
+            public ushort VirtualScanCode;
+            public char UnicodeChar;
+            public uint ControlKeyState;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AttachConsole(uint dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool FreeConsole();
+
+        [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr CreateFileW(
+            string lpFileName,
+            uint dwDesiredAccess,
+            uint dwShareMode,
+            IntPtr lpSecurityAttributes,
+            uint dwCreationDisposition,
+            uint dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", EntryPoint = "WriteConsoleInputW", SetLastError = true)]
+        private static extern bool WriteConsoleInputW(
+            IntPtr hConsoleInput,
+            [In] InputRecord[] lpBuffer,
+            uint nLength,
+            out uint lpNumberOfEventsWritten);
+
         [DllImport("user32.dll")]
         static extern uint GetDpiForWindow(IntPtr hWnd);
 
@@ -714,15 +852,17 @@ echo EXIT_CODE=%ERRORLEVEL% >> ""{outputFile}""
 
         private void Root_Loaded(object sender, RoutedEventArgs e)
         {
-            TitleBarAppName.Text = Package.Current.DisplayName;
-            ImgAppIcon.Source = new BitmapImage(Package.Current.Logo);
+            AppWindow.TitleBar.PreferredHeightOption = Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
+            TitleBarArea.Title = Package.Current.DisplayName;
+            TitleBarArea.Icon = new ImageIcon { Source = new BitmapImage(Package.Current.Logo) };
             ApplySettings();
             UpdateBackButton();
-            UpdateIconMargin();
+            UpdateTitleBarMargin();
             if (Content is FrameworkElement root)
             {
                 root.ActualThemeChanged -= AppThemeManager.OnActualThemeChanged;
                 root.ActualThemeChanged += AppThemeManager.OnActualThemeChanged;
+                AppThemeManager.UpdateTitleBarColors();
             }
         }
 
