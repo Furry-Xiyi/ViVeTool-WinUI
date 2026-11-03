@@ -17,7 +17,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Windows.Globalization;
-using Windows.Graphics;
 using Windows.System;
 using Windows.System.UserProfile;
 using Windows.UI;
@@ -148,6 +147,13 @@ namespace ViVeToolGUI.AppWindows
     {
         private static TextFileViewerWindow? _instance;
         private AppWindow _appWindow;
+        private InfoBar StatusInfoBar => ViewerPage.StatusInfoBarControl;
+        private TranslateTransform InfoBarTransform => ViewerPage.InfoBarTransformControl;
+        private Microsoft.UI.Xaml.Controls.Tabular.TableView FeaturesTableView => ViewerPage.FeaturesTableViewControl;
+        private Border LoadingOverlay => ViewerPage.LoadingOverlayControl;
+        private TextBlock LoadingText => ViewerPage.LoadingTextControl;
+        private Storyboard InfoBarSlideIn => ViewerPage.InfoBarSlideInControl;
+        private Storyboard InfoBarSlideOut => ViewerPage.InfoBarSlideOutControl;
         private Windows.System.DispatcherQueueTimer _searchTimer;
         private List<FeatureEntry> _allItems = new();
         private List<(int Index, int Field, int Pos)> _matches = new();
@@ -155,7 +161,7 @@ namespace ViVeToolGUI.AppWindows
         private int _currentMatchIndex = -1;
         private bool _searchPending;
         private int _bringIntoViewVersion;
-        public ObservableCollection<FeatureEntry> FilteredItems { get; } = new();
+        public ObservableCollection<FeatureEntry> FilteredItems => ViewerPage.FilteredItems;
         private const int GWLP_WNDPROC = -4;
         private const uint WM_NCLBUTTONDBLCLK = 0x00A3;
         private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
@@ -210,6 +216,7 @@ namespace ViVeToolGUI.AppWindows
         public TextFileViewerWindow()
         {
             this.InitializeComponent();
+            ViewerPage.Owner = this;
 
             _searchTimer = Windows.System.DispatcherQueue.GetForCurrentThread().CreateTimer();
             _searchTimer.Interval = TimeSpan.FromMilliseconds(300);
@@ -222,8 +229,6 @@ namespace ViVeToolGUI.AppWindows
             _appWindow = this.AppWindow;
             _appWindow.SetIcon("Assets\\AppIcon.ico");
             _appWindow.Title = new ResourceLoader().GetString("TextFileViewerWindowTitle");
-            _appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
-            _appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 
             var presenter = OverlappedPresenter.Create();
             presenter.IsMinimizable = false;
@@ -236,7 +241,6 @@ namespace ViVeToolGUI.AppWindows
 
             this.SystemBackdrop = AppThemeManager.CreateSystemBackdrop(AppThemeManager.CurrentMaterial);
 
-            _appWindow.Changed += AppWindow_Changed;
             this.Closed += TextFileViewerWindow_Closed;
 
             LoadCsv();
@@ -247,8 +251,6 @@ namespace ViVeToolGUI.AppWindows
         private void TextFileViewerWindow_Closed(object sender, WindowEventArgs args)
         {
             _instance = null;
-            if (_appWindow != null)
-                _appWindow.Changed -= AppWindow_Changed;
             _searchTimer?.Stop();
             _bringIntoViewVersion++;
             _infoBarDismissTimer?.Stop();
@@ -277,12 +279,6 @@ namespace ViVeToolGUI.AppWindows
                 _instance.SystemBackdrop = AppThemeManager.CreateSystemBackdrop(AppThemeManager.CurrentMaterial);
         }
 
-        private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
-        {
-            if (args.DidSizeChange)
-                UpdateDragRects();
-        }
-
         private void RootGrid_Loaded(object sender, RoutedEventArgs e)
         {
             if (Content is FrameworkElement root)
@@ -293,7 +289,6 @@ namespace ViVeToolGUI.AppWindows
                 AppThemeManager.UpdateTitleBarColors(_appWindow.TitleBar, root.ActualTheme == ElementTheme.Dark);
             }
 
-            UpdateDragRects();
         }
 
         private void RootGrid_ActualThemeChanged(FrameworkElement sender, object args)
@@ -301,53 +296,11 @@ namespace ViVeToolGUI.AppWindows
             AppThemeManager.UpdateTitleBarColors(_appWindow.TitleBar, sender.ActualTheme == ElementTheme.Dark);
         }
 
-        private void UpdateDragRects()
-        {
-            if (_appWindow == null || Content?.XamlRoot == null || ControlContainer == null || !ControlContainer.IsLoaded) return;
-            try
-            {
-                var scale = Content.XamlRoot.RasterizationScale;
-                var titleBarHeight = (int)(_appWindow.TitleBar.Height * scale);
-                var windowWidth = _appWindow.Size.Width;
-
-                int left, right;
-                if (_controlsExpanded)
-                {
-                    var containerPos = ControlContainer.TransformToVisual(Content).TransformPoint(new Windows.Foundation.Point(0, 0));
-                    left = (int)(containerPos.X * scale);
-                    double containerRight = containerPos.X + ControlContainer.ActualWidth;
-                    if (RefreshButton.Visibility == Visibility.Visible)
-                    {
-                        var refreshPos = RefreshButton.TransformToVisual(Content).TransformPoint(new Windows.Foundation.Point(0, 0));
-                        containerRight = refreshPos.X + RefreshButton.ActualWidth;
-                    }
-                    right = (int)(containerRight * scale);
-                }
-                else
-                {
-                    var searchPos = SearchBox.TransformToVisual(Content).TransformPoint(new Windows.Foundation.Point(0, 0));
-                    left = (int)(searchPos.X * scale);
-                    right = (int)((searchPos.X + SearchBox.ActualWidth) * scale);
-                }
-
-                var rects = new List<RectInt32>();
-                if (left > 0)
-                    rects.Add(new RectInt32(0, 0, left, titleBarHeight));
-                if (right < windowWidth)
-                    rects.Add(new RectInt32(right, 0, windowWidth - right, titleBarHeight));
-
-                _appWindow.TitleBar.SetDragRectangles(rects.ToArray());
-            }
-            catch { }
-        }
-
-        private bool _controlsExpanded;
-
         private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            _controlsExpanded = true;
-            MatchCaseToggle.IsHitTestVisible = true;
-            NavButtonsPanel.IsHitTestVisible = true;
+            // Keep the controls draggable while their show animation is running.
+            MatchCaseToggle.IsHitTestVisible = false;
+            NavButtonsPanel.IsHitTestVisible = false;
             ShowControlsStoryboard.Begin();
             ShowControlsStoryboard.Completed -= ShowControls_Completed;
             ShowControlsStoryboard.Completed += ShowControls_Completed;
@@ -356,7 +309,8 @@ namespace ViVeToolGUI.AppWindows
         private void ShowControls_Completed(object? sender, object e)
         {
             ShowControlsStoryboard.Completed -= ShowControls_Completed;
-            UpdateDragRects();
+            MatchCaseToggle.IsHitTestVisible = true;
+            NavButtonsPanel.IsHitTestVisible = true;
         }
 
         private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
@@ -370,7 +324,6 @@ namespace ViVeToolGUI.AppWindows
                     var focused = FocusManager.GetFocusedElement(Content.XamlRoot) as DependencyObject;
                     if (IsInVisualTree(focused, ControlContainer))
                         return;
-                    _controlsExpanded = false;
                     MatchCaseToggle.IsHitTestVisible = false;
                     NavButtonsPanel.IsHitTestVisible = false;
                     HideControlsStoryboard.Begin();
@@ -393,7 +346,6 @@ namespace ViVeToolGUI.AppWindows
         private void HideControls_Completed(object? sender, object e)
         {
             HideControlsStoryboard.Completed -= HideControls_Completed;
-            UpdateDragRects();
         }
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -628,7 +580,7 @@ namespace ViVeToolGUI.AppWindows
             return string.Join(",", parts);
         }
 
-        private void FeatureRowMenuFlyout_Opening(object sender, object e)
+        internal void FeatureRowMenuFlyout_Opening(object sender, object e)
         {
             if (sender is not MenuFlyout menu)
                 return;
@@ -698,20 +650,20 @@ namespace ViVeToolGUI.AppWindows
             RowContextMenu.ShowAt(target, new FlyoutShowOptions { Position = pos });
         }
 
-        private async void CmdEnable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Enable", _ctxVariantOptions);
+        internal async void CmdEnable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Enable", _ctxVariantOptions);
 
-        private async void CmdDisable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Disable");
+        internal async void CmdDisable_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Disable");
 
-        private async void CmdRestore_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Restore");
+        internal async void CmdRestore_Click(object sender, RoutedEventArgs e) => await ExecuteFeatureAsync(_ctxIdCsv, "Restore");
 
-        private void CmdCopy_Click(object sender, RoutedEventArgs e)
+        internal void CmdCopy_Click(object sender, RoutedEventArgs e)
         {
             var pkg = new Windows.ApplicationModel.DataTransfer.DataPackage();
             pkg.SetText(_ctxCopyContent);
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(pkg);
         }
 
-        private void CmdSelectAll_Click(object sender, RoutedEventArgs e) => _ctxCopySourceTb?.SelectAll();
+        internal void CmdSelectAll_Click(object sender, RoutedEventArgs e) => _ctxCopySourceTb?.SelectAll();
 
         private async System.Threading.Tasks.Task ExecuteFeatureAsync(string idCsv, string action, string variantOptions = null)
         {
@@ -897,7 +849,6 @@ namespace ViVeToolGUI.AppWindows
                 }
                 StopSpinning();
                 RefreshButton.Visibility = Visibility.Collapsed;
-                UpdateDragRects();
                 ShowInfoBar(InfoBarSeverity.Success, new ResourceLoader().GetString("InfoBar_FetchSuccess"));
                 ScheduleDismissInfoBar(3000);
             }
@@ -905,7 +856,6 @@ namespace ViVeToolGUI.AppWindows
             {
                 StopSpinning();
                 RefreshButton.Visibility = Visibility.Visible;
-                UpdateDragRects();
                 ShowInfoBar(InfoBarSeverity.Warning, new ResourceLoader().GetString("InfoBar_FetchTimeout"));
                 ScheduleDismissInfoBar(4000);
             }
@@ -917,7 +867,6 @@ namespace ViVeToolGUI.AppWindows
             {
                 StopSpinning();
                 RefreshButton.Visibility = Visibility.Visible;
-                UpdateDragRects();
                 var loader = new ResourceLoader();
                 ShowInfoBar(InfoBarSeverity.Error, string.Format(loader.GetString("InfoBar_FetchError"), ex.Message));
                 ScheduleDismissInfoBar(5000);

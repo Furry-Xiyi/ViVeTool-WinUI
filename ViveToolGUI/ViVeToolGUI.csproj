@@ -89,6 +89,12 @@
     <Page Update="Windows\TextFileViewerWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Update="AppWindows\TextFileViewerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="AppWindows\Pages\TextFileViewerPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Update="Dialogs\ExternalOpenDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>

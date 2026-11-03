@@ -11,7 +11,7 @@
   <Identity
     Name="28AE62C8.FurryXiyi.ViVeTool"
     Publisher="CN=69199A48-A765-47C7-BD15-A581600DBBC9"
-    Version="1.6.1.0" />
+    Version="1.6.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="47d03225-c16d-499a-8212-2c50c4852de2" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
